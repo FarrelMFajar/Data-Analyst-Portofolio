@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Whoosh Schedule Planner</title>
+<meta name="description" content="Interactive Whoosh trainset scheduling & revenue-impact planner.">
+<style>
+:root{
+  --bg:#ffffff; --surface-1:#f3f4f6; --surface-2:#eceef1; --border:#d9dce1;
+  --text-primary:#171a1f; --text-secondary:#5a616b; --text-muted:#8b929c;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#16181d; --surface-1:#20242b; --surface-2:#272c34; --border:#333944;
+         --text-primary:#eef1f5; --text-secondary:#aab2bd; --text-muted:#7c8593; }
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--text-primary);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-text-size-adjust:100%;}
+.wrap{max-width:1180px; margin:0 auto; padding:22px 20px 60px;}
+.apphead{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:4px;}
+.apphead h1{font-size:22px; margin:0; font-weight:800;}
+.apphead .sub{font-size:13px; color:var(--text-muted);}
+button{font-family:inherit; cursor:pointer; background:var(--surface-1); color:var(--text-primary);
+  border:1px solid var(--border); border-radius:8px; padding:7px 12px;}
+button:hover{background:var(--surface-2);}
+label{user-select:none;}
+.mchip{font-size:11px; padding:4px 10px; border:1px solid var(--border); border-radius:14px; background:var(--surface-1); color:var(--text-secondary); font-weight:600;}
+.mchip.on{background:#2a78d6; border-color:#2a78d6; color:#fff;}
+.card{background:var(--surface-1); border-radius:8px; padding:.6rem .8rem; overflow:hidden;}
+.card .k{font-size:11px; color:var(--text-secondary);}
+.card .v{font-size:21px; font-weight:600; margin-top:2px;}
+#cardB:hover, #cardD:hover{outline:1px solid var(--border);}
+.ibox{display:flex; align-items:center; background:var(--surface-1); border:1px solid var(--border); border-radius:8px; padding:.35rem .6rem;}
+.ibox input{border:none; background:transparent; color:var(--text-primary); font-size:15px; font-weight:600; outline:none;}
+.blbl{position:absolute; bottom:3px; left:0; right:0; text-align:center; writing-mode:vertical-rl; transform:rotate(180deg); font-size:8px; line-height:1; color:#000; pointer-events:none; font-family:ui-monospace,monospace;}
+.handle{position:absolute; top:0; bottom:0; width:3px; background:#8a8a8a; opacity:.9; border-radius:2px; z-index:6; pointer-events:none; box-shadow:0 0 0 1px rgba(255,255,255,.35);}
+/* toggle switch */
+.toggle-switch{position:relative; display:inline-block; width:42px; height:23px; flex:none;}
+.toggle-switch input{opacity:0; width:0; height:0; position:absolute;}
+.toggle-switch .slider{position:absolute; cursor:pointer; inset:0; background:var(--border); transition:.2s; border-radius:24px;}
+.toggle-switch .slider:before{position:absolute; content:""; height:17px; width:17px; left:3px; top:3px; background:#fff; transition:.2s; border-radius:50%; box-shadow:0 1px 2px rgba(0,0,0,.35);}
+.toggle-switch input:checked + .slider{background:#2a78d6;}
+.toggle-switch input:checked + .slider:before{transform:translateX(19px);}
+/* schedule (poster template) */
+#schedWrap{background:#fff; color:#161616; border-radius:12px; padding:26px 28px; box-shadow:0 1px 3px rgba(0,0,0,.15);}
+#schedWrap h2.stitle{font-size:24px; font-weight:400; margin:0 0 20px; text-align:center;}
+#schedWrap h2.stitle b{font-weight:800;}
+.scols{display:grid; grid-template-columns:1fr 1fr; gap:34px;}
+@media(max-width:760px){.scols{grid-template-columns:1fr;}}
+.schead{display:flex; align-items:center; justify-content:center; gap:9px; font-size:16px; margin-bottom:10px; color:#161616;}
+.schead .ic{display:inline-flex; width:30px; height:30px; border-radius:7px; background:#111; color:#fff; align-items:center; justify-content:center; font-size:15px;}
+.schead b{font-weight:800;}
+table.sched{width:100%; border-collapse:collapse; font-size:12.5px;}
+table.sched th{background:#C8102E; color:#fff; font-size:9.5px; font-weight:800; letter-spacing:.02em; padding:8px 6px; text-align:center; vertical-align:middle; line-height:1.15;}
+table.sched th .sm{font-size:8px; display:block;}
+table.sched td{padding:7px 7px; color:#161616;}
+table.sched td.tm{font-weight:800; text-align:center;}
+table.sched td.tn{white-space:nowrap; text-align:left;}
+.pill{display:inline-block; background:#ededed; color:#3a3a3a; border-radius:4px; padding:2px 7px; font-size:11px; font-weight:600; font-family:ui-monospace,monospace;}
+.ssdot{display:inline-block; width:9px; height:9px; border-radius:50%; background:#F5821F; margin-right:7px; vertical-align:middle;}
+.slegend{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-top:16px; color:#161616;}
+.smap{margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; align-items:center; gap:30px;}
+.smap .smtitle{flex:none;}
+.smap .mt{font-weight:800; font-size:19px; color:#161616; line-height:1.25;}
+.smap .ms{font-weight:400; font-size:12px; color:#8a8a8a; line-height:1.3;}
+.smaprow{position:relative; height:56px; flex:1;}
+.mline{position:absolute; left:12px; right:12px; bottom:6px; height:3px; background:#E30613;}
+.mnode{position:absolute; bottom:0; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center;}
+.mdot{width:13px; height:13px; border-radius:50%; background:#E30613;}
+.mlbl{font-size:11px; margin-bottom:5px; color:#161616; text-align:center; white-space:nowrap; font-weight:600;}
+.tabBtn{background:transparent; color:var(--text-secondary); border:none; border-bottom:2px solid transparent; border-radius:0; padding:8px 16px; font-size:13px; font-weight:600; margin-bottom:-1px;}
+.tabBtn:hover{background:var(--surface-1);}
+.tabBtn.active{color:var(--text-primary); border-bottom-color:#2a78d6;}
+@media print{ body *{visibility:hidden;} #schedWrap,#schedWrap *{visibility:visible;} #schedWrap{position:absolute; left:0; top:0; width:100%; box-shadow:none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="apphead">
+  <h1>Whoosh Schedule Planner</h1>
+  <span class="sub">Daily-average passengers · interactive operating-window & revenue-impact tool</span>
+  <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+    <input type="file" id="csvFile" accept=".csv" style="display:none">
+    <button id="csvImportBtn" style="font-size:12px;">🗀 Import CSV</button>
+  </div>
+</div>
+
+<div style="display:flex; align-items:center; gap:24px; margin:14px 0 14px; flex-wrap:wrap; justify-content:center;">
+  <div style="display:flex; flex-direction:column; gap:10px; flex:1 1 300px; min-width:280px; align-self:flex-start;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <label for="fare" style="font-size:13px; color:var(--text-secondary);">Avg revenue / passenger (Rp)</label>
+      <div class="ibox"><span style="color:var(--text-muted); margin-right:4px;">Rp</span><input id="fare" inputmode="numeric" value="300.000" style="width:100px;"></div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:5px; flex:1;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:13px; color:var(--text-secondary);">Month</span>
+        <button id="mAll" style="font-size:11px; padding:3px 9px;">Select all</button>
+        <button id="mNone" style="font-size:11px; padding:3px 9px;">Deselect all</button>
+      </div>
+      <div id="mchips" style="display:flex; flex-direction:column; gap:5px;">
+        <div style="display:flex; gap:5px;">
+          <button class="mchip" data-m="0">Jan</button><button class="mchip" data-m="1">Feb</button><button class="mchip" data-m="2">Mar</button><button class="mchip" data-m="3">Apr</button><button class="mchip" data-m="4">Mei</button><button class="mchip" data-m="5">Jun</button>
+        </div>
+        <div style="display:flex; gap:5px;">
+          <button class="mchip" data-m="6">Jul</button><button class="mchip" data-m="7">Agu</button><button class="mchip" data-m="8">Sep</button><button class="mchip" data-m="9">Okt</button><button class="mchip" data-m="10">Nov</button><button class="mchip" data-m="11">Des</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <fieldset style="border:1px solid var(--border); border-radius:8px; padding:8px 16px 10px; margin:0; display:flex; flex-direction:column; align-items:center; gap:8px; align-self:center; flex:none;">
+    <legend style="font-size:12px; color:var(--text-secondary); padding:0 4px; font-weight:600;">Switch Mode</legend>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">Average</span>
+      <label class="toggle-switch" title="Toggle chart between Average and Total passengers">
+        <input type="checkbox" id="totalToggle">
+        <span class="slider"></span>
+      </label>
+      <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">Total</span>
+    </div>
+  </fieldset>
+  <fieldset style="border:1px solid var(--border); border-radius:8px; padding:8px 12px 10px; margin:0; display:flex; flex-direction:column; gap:6px; align-self:flex-start;">
+    <legend style="font-size:12px; color:var(--text-secondary); padding:0 4px; font-weight:600;">Window time settings</legend>
+    <div style="display:flex; align-items:center; gap:10px; justify-content:space-between;">
+      <label for="propWin" style="font-size:13px; color:var(--text-secondary); font-weight:700;">Proposed window time</label>
+      <div class="ibox" style="padding:.3rem .5rem;"><input id="propWin" value="15:00" style="width:64px; text-align:center;"></div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; justify-content:space-between;">
+      <label for="pre" style="font-size:13px; color:var(--text-secondary);">Pre-window</label>
+      <div class="ibox" style="padding:.3rem .5rem;"><input id="pre" value="01:00" style="width:64px; text-align:center;"></div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; justify-content:space-between;">
+      <label for="post" style="font-size:13px; color:var(--text-secondary);">Post-window</label>
+      <div class="ibox" style="padding:.3rem .5rem;"><input id="post" value="00:30" style="width:64px; text-align:center;"></div>
+    </div>
+  </fieldset>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:10px;">
+  <div class="card"><div class="k">A · Operating trainsets</div><div class="v" style="display:flex; align-items:baseline; gap:5px;"><span id="rXX" style="color:#2a78d6; font-size:24px;">—</span><span id="rYY" style="font-size:15px; color:var(--text-secondary);">—</span><span id="rZZ" style="font-size:13px; color:var(--text-secondary);">—</span></div></div>
+  <div class="card" id="cardB" style="cursor:pointer;" title="Click to toggle Non-operating hours / Window time"><div class="k" id="bLabel">B · Window time</div><div id="rDown" class="v" style="font-size:15px; line-height:1.3; white-space:pre-line;">—</div></div>
+  <div class="card"><div class="k" id="cLabel">C · Average revenue lost</div><div id="rC" class="v" style="color:#eb6834; white-space:nowrap;">—</div></div>
+  <div class="card" id="cardD" style="cursor:pointer;" title="Click to toggle Passenger loss / Passengers"><div class="k" id="dLabel">D · Average passenger loss</div><div id="rLoss" class="v" style="font-size:16px; line-height:1.3; white-space:pre-line;">—</div></div>
+</div>
+<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px;">
+  <div class="card"><div class="k">E · Operating time</div><div id="rOp" class="v">—</div></div>
+  <div class="card"><div class="k">F · WHOOSH operating hours</div><div id="rRange" class="v">—</div></div>
+  <div class="card"><div class="k" id="gLabel">G · Average revenue</div><div id="rA" class="v" style="font-size:18px; white-space:nowrap;">—</div></div>
+  <div class="card"><div class="k" id="hLabel">H · Average revenue in selection</div><div id="rB" class="v" style="font-size:18px; white-space:nowrap;">—</div></div>
+</div>
+
+<div style="position:relative; display:flex; align-items:center; min-height:26px; margin-bottom:8px;">
+  <div style="display:flex; align-items:center; gap:14px; font-size:12px; color:var(--text-secondary); z-index:1;">
+    <span style="display:flex; align-items:center; gap:6px;"><span style="width:12px;height:12px;border-radius:2px;background:#2a78d6;"></span>Halim</span>
+    <span style="display:flex; align-items:center; gap:6px;"><span style="width:12px;height:12px;border-radius:2px;background:#eb6834;"></span>Tegalluar</span>
+  </div>
+  <h2 id="chartTitle" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); margin:0; font-size:16px; font-weight:700; text-align:center; white-space:nowrap;">Average Daily Passenger by Time</h2>
+</div>
+
+<div id="plotWrap" style="position:relative; width:100%; user-select:none;">
+  <div style="position:absolute; left:0; top:0; bottom:44px; width:16px; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+    <span id="yAxisLabel" style="writing-mode:vertical-rl; transform:rotate(180deg); font-size:11px; color:var(--text-secondary); white-space:nowrap; text-align:center;">Average daily passengers (pax/day)</span>
+  </div>
+  <div id="yAxis" style="position:absolute; left:16px; top:0; bottom:44px; width:38px; pointer-events:none;"></div>
+  <div id="plot" style="position:relative; margin-left:54px; height:320px; border-bottom:1px solid var(--border); border-left:1px solid var(--border); cursor:crosshair; touch-action:none;">
+    <div id="selRect" style="position:absolute; top:0; bottom:0; background:rgba(138,138,138,.12); display:none; pointer-events:none; z-index:4;"></div>
+    <div id="hL" class="handle" style="display:none;"></div>
+    <div id="hR" class="handle" style="display:none;"></div>
+  </div>
+  <div id="xAxis" style="margin-left:54px; height:24px; position:relative; font-size:10px; color:var(--text-muted);"></div>
+  <div style="margin-left:54px; height:20px; text-align:center; font-size:11px; color:var(--text-secondary);">Train departure time</div>
+</div>
+<div style="margin-top:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+  <button id="resetBtn" style="font-size:13px;">Select all</button>
+  <button id="noneBtn" style="font-size:13px;">Clear</button>
+  <button id="exportCsv" style="font-size:13px; margin-left:auto;">↓ Export CSV</button>
+</div>
+<div style="margin-top:6px;"><span id="hint" style="font-size:12px; color:var(--text-muted);">drag = select · edges = resize · middle = pan (wraps) · Ctrl add · Shift remove. Click card B to switch Non-operating hours / Window time — colour is green when non-operating hours covers Pre-window + Post-window + Proposed window time, red otherwise.</span></div>
+
+<div class="tabs" style="display:flex; gap:4px; margin-top:16px; border-bottom:1px solid var(--border);">
+  <button class="tabBtn" data-tab="schedule">Schedule</button>
+  <button class="tabBtn" data-tab="narration">Narration</button>
+  <button class="tabBtn" data-tab="trainset">Trainset</button>
+</div>
+
+<div id="panel-schedule" class="tabPanel">
+  <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button id="genSched" style="font-size:13px; font-weight:600; padding:9px 16px; border-radius:8px;">Buat / Perbarui Jadwal Keberangkatan</button>
+    <button id="printSched" style="font-size:13px; padding:9px 14px; border-radius:8px;">Cetak / PDF</button>
+    <button id="savePng" style="font-size:13px; padding:9px 14px; border-radius:8px;">Simpan ke PNG</button>
+    <span style="font-size:12px; color:var(--text-muted);">Menghasilkan jadwal dari trainset yang beroperasi (seleksi saat ini).</span>
+  </div>
+  <div id="schedWrap" style="display:none; margin-top:14px;"></div>
+</div>
+
+<div id="panel-narration" class="tabPanel" style="display:none;">
+  <div class="card" style="margin-top:14px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+      <div class="k">Narration (dynamic · ready to copy):</div>
+      <button id="copyNarr" style="font-size:12px;">Copy</button>
+    </div>
+    <textarea id="narr" readonly style="width:100%; height:300px; resize:vertical; box-sizing:border-box; background:var(--surface-2); color:var(--text-primary); border:1px solid var(--border); border-radius:6px; padding:10px; font-size:12.5px; line-height:1.55; white-space:pre-wrap; font-family:inherit;"></textarea>
+  </div>
+</div>
+
+<div id="panel-trainset" class="tabPanel" style="display:none;">
+  <div class="card" style="margin-top:14px;">
+    <div class="k" style="margin-bottom:8px;">Trainset</div>
+    <div id="rList" style="font-size:13px; line-height:1.6;">—</div>
+  </div>
+</div>
+</div>
+
+<script>
+let DATA=[{"train":"G1004","dep":365,"o":"T","kw":false,"p":[0,6824,5909,6349,7081,7278,7671,7286,7422,7896,7379,8210],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1003","dep":385,"o":"H","kw":true,"p":[0,8206,5012,7583,9394,8112,9568,9139,7878,8844,9865,10619],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1006","dep":395,"o":"T","kw":true,"p":[0,5579,5208,6050,6512,5769,6335,5947,5917,6111,5931,6473],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1005","dep":420,"o":"H","kw":false,"p":[0,8100,3577,5710,7741,7530,9277,9145,7732,8807,8990,9446],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1008","dep":425,"o":"T","kw":false,"p":[0,4187,3948,3995,4626,5475,5984,5466,5440,6172,5796,6383],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1007","dep":445,"o":"H","kw":true,"p":[0,7721,4707,9104,9819,8449,9418,8208,7447,9283,8139,9368],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1010","dep":455,"o":"T","kw":true,"p":[0,6595,4723,7138,7170,6796,6909,6309,6204,6428,6609,7165],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1009","dep":480,"o":"H","kw":false,"p":[0,11173,6478,9571,11615,12589,14676,12994,10934,12989,12749,14226],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1012","dep":485,"o":"T","kw":false,"p":[0,6266,4482,5253,5447,6704,6975,6713,6217,6586,6596,7206],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1011","dep":505,"o":"H","kw":true,"p":[0,10999,7737,12084,13008,10693,11341,9732,8702,10063,10139,11423],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1014","dep":515,"o":"T","kw":true,"p":[0,6743,4737,8207,8017,6858,6633,6391,5572,6177,6484,6791],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1013","dep":540,"o":"H","kw":false,"p":[0,10527,5936,9734,10727,11800,12918,11910,10436,11540,11932,14165],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1016","dep":545,"o":"T","kw":false,"p":[0,5807,4020,4917,5580,7891,8200,7935,7251,7702,8083,9570],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1015","dep":565,"o":"H","kw":true,"p":[0,9691,7190,11196,11704,10958,11671,9902,8564,9127,8869,12023],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1018","dep":575,"o":"T","kw":true,"p":[0,6783,4432,7950,7578,7710,7308,6689,5954,6755,6851,7429],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1017","dep":600,"o":"H","kw":false,"p":[0,9316,6015,9663,10171,12691,13699,11682,10293,11294,11051,13551],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1020","dep":605,"o":"T","kw":false,"p":[0,6153,4203,5244,5770,9607,7876,7394,6421,7173,7314,8424],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1019","dep":625,"o":"H","kw":true,"p":[0,9584,7284,11050,11106,10939,10809,9049,7630,8632,8600,10803],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1022","dep":635,"o":"T","kw":true,"p":[0,8909,6293,9413,9072,7383,7703,6997,6714,6706,6989,8010],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1021","dep":660,"o":"H","kw":false,"p":[0,8374,6968,9015,9900,10708,11172,10484,8711,9774,9380,12378],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1024","dep":665,"o":"T","kw":false,"p":[0,5837,4576,4961,5491,7186,7675,7442,6738,7183,7270,8502],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1023","dep":685,"o":"H","kw":true,"p":[0,7184,6626,9504,9651,9321,9995,8126,7111,7469,7453,10237],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1026","dep":695,"o":"T","kw":true,"p":[0,6371,4580,7732,7127,7483,7906,7041,6432,7045,7200,8469],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1025","dep":720,"o":"H","kw":false,"p":[10670,6584,4736,6686,7783,9394,10110,9497,8495,8478,9041,11305],"pr":[1,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1028","dep":725,"o":"T","kw":false,"p":[0,5585,4845,5941,5731,7633,7834,6957,6410,6802,7208,8389],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1027","dep":745,"o":"H","kw":true,"p":[0,7921,7191,9440,9691,8165,8214,6907,6188,6692,6597,8929],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1030","dep":755,"o":"T","kw":true,"p":[0,7597,5518,8964,8804,8185,8424,7587,6597,7342,8122,9170],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1029","dep":780,"o":"H","kw":false,"p":[0,8118,5887,7388,8289,9782,10163,9030,8331,8754,9280,11578],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1032","dep":785,"o":"T","kw":false,"p":[0,6305,5354,6716,6843,9451,9379,8513,7656,8431,8655,9993],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1031","dep":805,"o":"H","kw":true,"p":[0,7329,7479,9245,9787,8840,8678,7980,7559,8004,8026,9955],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1034","dep":815,"o":"T","kw":true,"p":[0,9151,7114,10740,10626,10261,10613,9225,8161,9548,10140,12237],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1033","dep":840,"o":"H","kw":false,"p":[0,8364,6613,7183,8537,10441,11146,10180,9448,9403,9626,11687],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1036","dep":845,"o":"T","kw":false,"p":[0,8327,6461,9004,8425,11046,10559,9659,8136,9270,9724,10967],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1035","dep":865,"o":"H","kw":true,"p":[0,8384,8280,9476,9809,8911,9186,8777,7644,7948,8124,10402],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1038","dep":875,"o":"T","kw":true,"p":[0,10709,8581,12081,12558,11347,11195,10323,8923,9711,9987,11744],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1037","dep":900,"o":"H","kw":false,"p":[0,8471,7024,7499,8871,10034,10883,10472,9362,9949,10025,12631],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1040","dep":905,"o":"T","kw":false,"p":[0,9123,5984,9885,9487,10369,11227,10166,9043,9829,9998,11604],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1039","dep":925,"o":"H","kw":true,"p":[0,8522,7251,8296,9151,8033,8215,8253,7318,8042,8167,9865],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1042","dep":935,"o":"T","kw":true,"p":[12655,9861,6981,11310,10752,10620,11234,10240,8845,10557,10370,11941],"pr":[1,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1041","dep":960,"o":"H","kw":false,"p":[0,8073,7075,7015,8574,10286,9820,9882,9245,9732,9987,11172],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1044","dep":965,"o":"T","kw":false,"p":[0,8108,5460,8852,8825,10603,11062,10532,9226,9939,10794,12884],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1043","dep":985,"o":"H","kw":true,"p":[0,7621,7184,8230,8805,8422,8083,8257,7071,8218,8424,9761],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1046","dep":995,"o":"T","kw":true,"p":[0,10440,6490,12188,12327,11675,12146,10814,9494,10968,10816,11761],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1045","dep":1020,"o":"H","kw":false,"p":[0,7721,6023,7215,7908,9858,10034,10038,8850,10335,10335,10349],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1048","dep":1025,"o":"T","kw":false,"p":[0,7939,4186,8635,8847,11124,11272,10814,8778,10069,10603,11316],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1047","dep":1045,"o":"H","kw":true,"p":[0,7999,6405,8014,8953,8294,8115,8220,7552,8504,8592,9456],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1050","dep":1055,"o":"T","kw":true,"p":[12281,9723,4849,11187,10941,10569,11360,10348,8573,10282,10700,11299],"pr":[1,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1049","dep":1080,"o":"H","kw":false,"p":[10640,7504,4733,6342,7501,8810,9155,9076,8095,8995,8531,9399],"pr":[1,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1052","dep":1085,"o":"T","kw":false,"p":[0,7052,2934,6972,7086,9395,9723,8927,7236,9075,9094,9342],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1051","dep":1105,"o":"H","kw":true,"p":[0,6736,4654,6827,7910,7313,8160,7742,7117,7922,8161,9061],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1054","dep":1115,"o":"T","kw":true,"p":[0,8874,3702,10566,10654,10000,10181,9893,8143,9642,9486,9922],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1053","dep":1140,"o":"H","kw":false,"p":[0,6766,3960,5857,7006,8010,9100,8763,7438,8578,8902,9325],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1056","dep":1145,"o":"T","kw":false,"p":[0,7094,2699,6838,7773,9303,9857,8919,7516,9097,9052,9094],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1055","dep":1165,"o":"H","kw":true,"p":[0,6320,4841,6243,7272,6595,7533,7038,6256,7284,7295,7873],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1058","dep":1175,"o":"T","kw":true,"p":[0,8973,4753,11116,10797,9400,9764,9005,7891,9285,9111,10173],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1057","dep":1200,"o":"H","kw":false,"p":[0,6283,4236,5572,6640,7762,8495,7646,7285,8249,7948,8479],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1060","dep":1205,"o":"T","kw":false,"p":[11480,6082,4339,6365,6622,8705,8849,8121,7207,7807,8252,8883],"pr":[1,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1059","dep":1225,"o":"H","kw":true,"p":[0,6141,5227,6022,6696,6083,6417,5622,5512,6675,6314,7073],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1062","dep":1235,"o":"T","kw":true,"p":[0,6649,6199,9007,8575,7878,8644,7011,6163,7021,7179,8107],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1061","dep":1260,"o":"H","kw":false,"p":[0,4818,4063,4613,5381,6338,6605,6391,5761,6982,6983,7541],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1064","dep":1265,"o":"T","kw":false,"p":[0,6901,6408,7915,7744,9177,10108,8793,7461,8734,9042,10003],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]},{"train":"G1063","dep":1285,"o":"H","kw":true,"p":[0,5461,5847,5927,6797,6917,7045,6307,5863,7340,6972,8138],"pr":[0,1,1,1,1,1,1,1,1,1,1,1]}];
+let N=DATA.length;
+const EDGE=7; let DAYS=[31,28,31,30,31,30,31,31,30,31,30,31]; const MONTHNAME=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const SS=new Set(['G1003','G1005','G1007','G1004','G1006','G1008']);
+const arr=i=>DATA[i].dep+(DATA[i].kw?54:47);
+const fmtID=n=>Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+const hhmm=m=>{m=((m%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');};
+const dur=m=>{m=Math.max(0,m);return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');};
+const jamDot=m=>{m=Math.max(0,Math.round(m));return Math.floor(m/60)+'.'+String(m%60).padStart(2,'0');};
+const parseHM=s=>{const m=String(s).match(/(\d{1,2}):?(\d{0,2})/);if(!m)return 0;return (+m[1]||0)*60+(+(m[2]||0));};
+const plot=document.getElementById('plot'),yAxis=document.getElementById('yAxis'),xAxis=document.getElementById('xAxis'),selRect=document.getElementById('selRect'),hL=document.getElementById('hL'),hR=document.getElementById('hR');
+let fare=300000, selected=new Set(DATA.map((_,i)=>i)), win=null, bMode='window', preMin=60, postMin=30;
+let monthSel=new Set([0,1,2,3,4,5,6,7,8,9,10,11]);
+let action=null, startX=0, committed=null, resizeFixed=0, panBaseStart=0, panBaseK=0, panX0=0;
+let DAV=new Array(N).fill(0); let MAXD=1, TOTAL=0;
+const yLabels=[], YF=[0,.25,.5,.75,1];
+const bars=[], fills=[];
+function buildChart(){
+  yAxis.innerHTML=''; xAxis.innerHTML='';
+  plot.querySelectorAll('.cgen').forEach(el=>el.remove());
+  yLabels.length=0;
+  YF.forEach(f=>{
+    const g=document.createElement('div'); g.className='cgen'; g.style.cssText=`position:absolute;left:0;right:0;bottom:${f*100}%;border-top:1px solid var(--border);opacity:.5;pointer-events:none;`; plot.appendChild(g);
+    const lbl=document.createElement('div'); lbl.style.cssText=`position:absolute;right:4px;bottom:${f*100}%;transform:translateY(50%);font-size:10px;color:var(--text-muted);`; yAxis.appendChild(lbl); yLabels.push(lbl);
+  });
+  bars.length=0; fills.length=0;
+  DATA.forEach((d,i)=>{
+    const slot=document.createElement('div'); slot.className='cgen'; slot.style.cssText=`position:absolute;bottom:0;top:0;left:${i/N*100}%;width:${100/N}%;`;
+    const fill=document.createElement('div'); fill.style.cssText=`position:absolute;bottom:0;left:1px;right:1px;height:0%;border-radius:2px 2px 0 0;background:${d.o==='H'?'#2a78d6':'#eb6834'};`;
+    const lbl=document.createElement('div'); lbl.className='blbl'; lbl.textContent=d.train;
+    slot.appendChild(fill); slot.appendChild(lbl);
+    plot.appendChild(slot); bars.push(slot); fills.push(fill);
+  });
+  const deps=DATA.map(d=>d.dep), mn=Math.min(...deps), mx=Math.max(...deps);
+  const steps=Math.min(6,N);
+  for(let s=0;s<steps;s++){
+    const target = steps>1 ? mn+(mx-mn)*s/(steps-1) : mn;
+    let best=0,bd=Infinity;
+    DATA.forEach((d,ix)=>{const df=Math.abs(d.dep-target); if(df<bd){bd=df; best=ix;}});
+    const tick=document.createElement('div'); tick.style.cssText=`position:absolute;top:3px;left:${best/N*100}%;`; tick.textContent=hhmm(DATA[best].dep); xAxis.appendChild(tick);
+  }
+  DAV=new Array(N).fill(0);
+}
+const $=id=>document.getElementById(id);
+const rA=$('rA'),rB=$('rB'),rC=$('rC'),rLoss=$('rLoss'),rRange=$('rRange'),rOp=$('rOp'),rDown=$('rDown'),rList=$('rList'),bLabel=$('bLabel'),narr=$('narr'),schedWrap=$('schedWrap'),rXX=$('rXX'),rYY=$('rYY'),rZZ=$('rZZ'),dLabel=$('dLabel'),chartTitle=$('chartTitle'),yAxisLabel=$('yAxisLabel'),cLabel=$('cLabel'),gLabel=$('gLabel'),hLabel=$('hLabel');
+let dMode='loss', propMin=900, totalMode=false;
+const runSet=(start,k)=>{const s=new Set();for(let j=0;j<k;j++)s.add(((start+j)%N+N)%N);return s;};
+const rangeSet=(lo,hi)=>{const s=new Set();for(let i=lo;i<=hi;i++)s.add(i);return s;};
+const wrapped=()=>win&&(win.start+win.k>N);
+function runsOf(set){const a=[...set].sort((x,y)=>x-y);const r=[];if(!a.length)return r;let s=a[0],p=a[0];
+  for(let k=1;k<a.length;k++){if(a[k]===p+1)p=a[k];else{r.push([s,p]);s=a[k];p=a[k];}} r.push([s,p]); return r;}
+function fit(el,max){el.style.fontSize=max+'px';let s=max;while(el.scrollWidth>el.clientWidth+1 && s>9){s--;el.style.fontSize=s+'px';}}
+const WIN_RED='#e5484d', WIN_GREEN='#30a46c';
+const tod=m=>m==null?'—':hhmm(m);
+function recompute(){   // daily averages / totals from the selected months
+  MAXD=1; TOTAL=0;
+  for(let i=0;i<N;i++){
+    let sp=0,sd=0; monthSel.forEach(m=>{ if(DATA[i].pr[m]){ sp+=DATA[i].p[m]; sd+=DAYS[m]; } });
+    DAV[i]= totalMode ? sp : (sd?Math.ceil(sp/sd):0);
+    if(DAV[i]>MAXD)MAXD=DAV[i]; TOTAL+=DAV[i];
+  }
+  for(let i=0;i<N;i++){ fills[i].style.height=(DAV[i]/MAXD*100)+'%';
+    bars[i].title=`${DATA[i].train} · dep ${hhmm(DATA[i].dep)} · arr ${hhmm(arr(i))}${DATA[i].kw?' (Karawang +54)':' (skip Karawang +47)'}\n${fmtID(DAV[i])} ${totalMode?'pax total':'pax/day avg'}`; }
+  yLabels.forEach((el,ix)=>el.textContent=Math.round(MAXD*YF[ix]));
+  chartTitle.textContent=(totalMode?'Total':'Average')+' Daily Passenger by Time';
+  yAxisLabel.textContent= totalMode?'Total passengers (selected months)':'Average daily passengers (pax/day)';
+}
+function render(){
+  let selPax=0,H=[],T=[];
+  bars.forEach((b,i)=>{const on=selected.has(i);b.style.opacity=on?'1':'0.3';
+    if(on){selPax+=DAV[i];(DATA[i].o==='H'?H:T).push(DATA[i]);}});
+  const A=TOTAL*fare,B=selPax*fare, lossPax=TOTAL-selPax, lossRev=A-B, pct=(TOTAL?lossPax/TOTAL*100:0).toFixed(1);
+  const modeWord = totalMode?'Total':'Average';
+  rA.textContent='Rp '+fmtID(A); fit(rA,18);
+  rB.textContent='Rp '+fmtID(B); fit(rB,18);
+  rC.textContent='Rp '+fmtID(lossRev); fit(rC,21);
+  cLabel.textContent='C · '+modeWord+' revenue lost';
+  gLabel.textContent='G · '+modeWord+' revenue';
+  hLabel.textContent='H · '+modeWord+' revenue in selection';
+  dLabel.textContent = dMode==='loss' ? ('D · '+modeWord+' passenger loss') : ('D · '+modeWord+' passengers');
+  if(dMode==='loss'){ rLoss.style.fontSize='16px';
+    rLoss.innerHTML='<span style="color:#eb6834;">'+pct+'%</span>\n'+fmtID(lossPax)+' pax'; }
+  else { rLoss.textContent=modeWord+' passengers: '+fmtID(selPax)+'/'+fmtID(TOTAL); fit(rLoss,16); }
+  rXX.textContent=selected.size; rYY.textContent='/ '+N; rZZ.textContent='('+Math.ceil(selected.size/N*100)+'%)';
+  bLabel.textContent = bMode==='nonop' ? 'B · Non-operating hours' : 'B · Window time';
+  if(win && !wrapped()){hL.style.display=hR.style.display='block';
+    hL.style.left='calc('+(win.start/N*100)+'% - 1.5px)'; hR.style.left='calc('+((win.start+win.k)/N*100)+'% - 1.5px)';
+  } else {hL.style.display=hR.style.display='none';}
+  const empty=selected.size===0;
+  const runs=runsOf(selected);
+  let op=0,maxArr=0; const parts=[];
+  runs.forEach(([s,e])=>{const a=arr(e); op+=a-DATA[s].dep; if(a>maxArr)maxArr=a; parts.push(hhmm(DATA[s].dep)+'–'+hhmm(a));});
+  const nonOp=1440-op, nStart=empty?null:maxArr+1, nEnd=empty?null:nStart+nonOp;
+  const wd=nonOp-preMin-postMin, winBegin=empty?null:nStart+preMin, winEnd=empty?null:nEnd-postMin;
+  rOp.textContent=dur(op)+' Hours'; rRange.textContent=empty?'—':parts.join(', ');
+  const required=preMin+postMin+propMin, fits=nonOp>=required;   // non-operating hours must cover pre+post+proposed window
+  if(bMode==='nonop'){
+    rDown.textContent=empty?'—\n24:00 hours':hhmm(nStart)+' – '+hhmm(nEnd)+'\n'+dur(nonOp)+' hours';
+  } else {
+    rDown.textContent=empty?'—\n'+dur(wd)+' hours':hhmm(winBegin)+' – '+hhmm(winEnd)+'\n'+dur(wd)+' hours';
+  }
+  rDown.style.color = fits?WIN_GREEN:WIN_RED;
+  const fmtG=a=>a.slice().sort((p,q)=>p.dep-q.dep).map(d=>d.train).join(', ')||'—';
+  const rListBlock=(name,arr)=>`<div style="margin-bottom:12px;"><div style="font-weight:700; font-size:13px; margin-bottom:4px;">${name}</div><div style="font-weight:300; font-family:ui-monospace,monospace; font-size:13px; line-height:1.6;">${fmtG(arr)}</div></div>`;
+  rList.innerHTML=rListBlock('Halim',H)+rListBlock('Tegalluar',T);
+  const Td=T.map(d=>d.dep), Hd=H.map(d=>d.dep);
+  const Tf=Td.length?Math.min(...Td):null, Tl=Td.length?Math.max(...Td):null;
+  const Hf=Hd.length?Math.min(...Hd):null, Hl=Hd.length?Math.max(...Hd):null;
+  const selCount=selected.size, cut=N-selCount;
+  const monthTxt=[...monthSel].sort().map(m=>MONTHNAME[m]).join(', ');
+  narr.value=
+`Assumptions:
+1. Total time without trains: ${jamDot(nonOp)} hours per day (${jamDot(preMin)} hours pre-window time + ${jamDot(wd)} hours window time + ${postMin} minutes post-window time), leaving Whoosh operating hours of ${jamDot(op)} hours
+2. Window time is allocated from ${tod(winBegin)} to ${tod(winEnd)} WIB.
+5. Average revenue per passenger used: Rp${fmtID(fare)}
+6. Under normal conditions, the number of trips per day is ${N} trips
+7. Passengers whose travel time is cut do not book tickets
+(Passengers calculated from months: ${monthTxt} — mode: ${totalMode?'Total':'Daily average'})
+
+Results:
+1. Reduction of ${cut} trainset trips, leaving ${selCount} trips
+2. Tegalluar Station: First departure ${tod(Tf)}, last departure ${tod(Tl)}
+3. Halim Station: First departure ${tod(Hf)}, last departure ${tod(Hl)}
+4. Average daily passenger loss of ${fmtID(lossPax)} people
+5. Total daily loss Rp${fmtID(lossRev)} (a ${pct}% loss compared to normal over the selected months)`;
+  if(schedWrap.style.display!=='none') generateSchedule();
+}
+// ---------- schedule times ----------
+function stimes(i,dir){const d=DATA[i],dep=d.dep,kw=d.kw;
+  return dir==='HT'?[hhmm(dep),kw?hhmm(dep+17):'',hhmm(dep+(kw?40:33)),hhmm(dep+(kw?54:47))]
+                   :[hhmm(dep),hhmm(dep+18),kw?hhmm(dep+39):'',hhmm(dep+(kw?54:47))];}
+function headLabel(h){return h==='Tegalluar Summarecon'?'Tegalluar<span class="sm">Summarecon</span>':h;}
+function schedTable(indices,dir){
+  const heads = dir==='HT' ? ['Halim','Karawang','Padalarang','Tegalluar Summarecon'] : ['Tegalluar Summarecon','Padalarang','Karawang','Halim'];
+  const th = `<th>TRAIN<br>NUMBER</th>`+heads.map((h,i)=>`<th>${headLabel(h)}${i<3?' &rarr;':''}</th>`).join('');
+  const body = indices.length ? indices.map((i,idx)=>{
+    const d=DATA[i], c=stimes(i,dir);
+    const dot=`<span class="ssdot" style="${SS.has(d.train)?'':'visibility:hidden'}"></span>`;
+    return `<tr style="background:${idx%2?'#f6f6f6':'#fff'}"><td class="tn">${dot}<span class="pill">${d.train}</span></td>${c.map(x=>`<td class="tm">${x}</td>`).join('')}</tr>`;
+  }).join('') : `<tr><td colspan="5" style="padding:14px;color:#999;">(tidak ada trainset beroperasi)</td></tr>`;
+  return `<table class="sched"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`;
+}
+function stampStr(){const s=new Date();return String(s.getDate()).padStart(2,'0')+String(s.getMonth()+1).padStart(2,'0')+String(s.getFullYear()).slice(2);}
+function stampDisplay(){const s=new Date();return String(s.getDate()).padStart(2,'0')+'/'+String(s.getMonth()+1).padStart(2,'0')+'/'+s.getFullYear();}
+function generateSchedule(){
+  const sel=[...selected];
+  const left=sel.filter(i=>DATA[i].o==='H').sort((a,b)=>DATA[a].dep-DATA[b].dep);
+  const right=sel.filter(i=>DATA[i].o==='T').sort((a,b)=>DATA[a].dep-DATA[b].dep);
+  const map=['Halim','Karawang','Padalarang','Tegalluar Summarecon'];
+  const mapHTML=map.map((s,i)=>`<div class="mnode" style="left:${i/(map.length-1)*100}%;"><div class="mlbl">${s.replace(' ','<br>')}</div><div class="mdot"></div></div>`).join('')+'<div class="mline"></div>';
+  schedWrap.innerHTML=
+    `<h2 class="stitle">Whoosh Departure <b>Schedule</b></h2>
+     <div class="scols">
+       <div><div class="schead"><span class="ic"><svg viewBox="0 0 24 24" width="17" height="17"><rect x="5" y="3" width="14" height="13" rx="4" fill="#fff"/><rect x="7.3" y="6" width="3.6" height="3.6" rx="1" fill="#111"/><rect x="13.1" y="6" width="3.6" height="3.6" rx="1" fill="#111"/><rect x="3.5" y="15.2" width="17" height="2" rx="1" fill="#fff"/><circle cx="8.5" cy="19.3" r="1.5" fill="#fff"/><circle cx="15.5" cy="19.3" r="1.5" fill="#fff"/></svg></span><span>Halim &rarr; <b>Tegalluar Summarecon</b></span></div>${schedTable(left,'HT')}</div>
+       <div><div class="schead"><span class="ic"><svg viewBox="0 0 24 24" width="17" height="17"><rect x="5" y="3" width="14" height="13" rx="4" fill="#fff"/><rect x="7.3" y="6" width="3.6" height="3.6" rx="1" fill="#111"/><rect x="13.1" y="6" width="3.6" height="3.6" rx="1" fill="#111"/><rect x="3.5" y="15.2" width="17" height="2" rx="1" fill="#fff"/><circle cx="8.5" cy="19.3" r="1.5" fill="#fff"/><circle cx="15.5" cy="19.3" r="1.5" fill="#fff"/></svg></span><span><b>Tegalluar Summarecon</b> &rarr; Halim</span></div>${schedTable(right,'TH')}</div>
+     </div>
+     <div class="slegend"><span class="ssdot"></span> Operates Monday–Saturday</div>
+     <div class="smap"><div class="smtitle"><div class="mt">Whoosh Route Map</div><div class="ms">Peta Whoosh</div></div><div class="smaprow">${mapHTML}</div></div>
+     <div style="text-align:right;font-size:11px;color:#9a9a9a;margin-top:10px;">Update ${stampDisplay()}</div>`;
+  schedWrap.style.display='block';
+}
+// ---------- PNG (pure canvas render) ----------
+function roundRect(x,px,py,w,h,r){x.beginPath();x.moveTo(px+r,py);x.arcTo(px+w,py,px+w,py+h,r);x.arcTo(px+w,py+h,px,py+h,r);x.arcTo(px,py+h,px,py,r);x.arcTo(px,py,px+w,py,r);x.closePath();}
+function drawTable(x,tx,ty,colW,subH,headH,rowH,idxs,dir){
+  const c0w=colW*0.26, timeW=(colW-c0w)/4;
+  x.fillStyle='#161616'; x.textAlign='center'; x.textBaseline='middle'; x.font='600 15px system-ui,Arial';
+  x.fillText(dir==='HT'?'Halim → Tegalluar Summarecon':'Tegalluar Summarecon → Halim', tx+colW/2, ty+subH/2);
+  const hy=ty+subH;
+  x.fillStyle='#C8102E'; x.fillRect(tx,hy,colW,headH);
+  x.fillStyle='#fff'; x.font='800 9.5px system-ui,Arial';
+  x.fillText('TRAIN', tx+c0w/2, hy+headH/2-6); x.fillText('NUMBER', tx+c0w/2, hy+headH/2+6);
+  const heads = dir==='HT'?['Halim','Karawang','Padalarang','Tegalluar Summarecon']:['Tegalluar Summarecon','Padalarang','Karawang','Halim'];
+  heads.forEach((h,ci)=>{const cx=tx+c0w+(ci+0.5)*timeW;
+    if(h==='Tegalluar Summarecon'){x.font='800 9.5px system-ui,Arial';x.fillText('Tegalluar',cx,hy+headH/2-6);x.font='800 8px system-ui,Arial';x.fillText('Summarecon',cx,hy+headH/2+7);}
+    else{x.font='800 9.5px system-ui,Arial';x.fillText(h,cx,hy+headH/2);}});
+  if(!idxs.length){x.fillStyle='#999';x.textAlign='left';x.font='400 12px system-ui,Arial';x.fillText('(tidak ada trainset beroperasi)',tx+10,hy+headH+rowH/2);return;}
+  idxs.forEach((i,r)=>{const ry=hy+headH+r*rowH; const d=DATA[i];
+    x.fillStyle=r%2?'#f6f6f6':'#ffffff'; x.fillRect(tx,ry,colW,rowH);
+    let px=tx+9;
+    if(SS.has(d.train)){x.fillStyle='#F5821F';x.beginPath();x.arc(tx+9,ry+rowH/2,4.5,0,7);x.fill();px=tx+19;}
+    x.fillStyle='#ededed'; roundRect(x,px,ry+rowH/2-9,48,18,4); x.fill();
+    x.fillStyle='#3a3a3a'; x.font='600 11px ui-monospace,monospace'; x.textAlign='center'; x.fillText(d.train,px+24,ry+rowH/2);
+    x.fillStyle='#161616'; x.font='800 12.5px system-ui,Arial';
+    stimes(i,dir).forEach((tt,ci)=>{ if(tt) x.fillText(tt, tx+c0w+(ci+0.5)*timeW, ry+rowH/2); });
+  });
+}
+function drawScheduleCanvas(){
+  const S=2, pad=28, gap=34, W=1180;
+  const colW=(W-2*pad-gap)/2;
+  const titleH=46, subH=30, headH=40, rowH=28, legendH=34, mapH=80, stampH=22;
+  const left=[...selected].filter(i=>DATA[i].o==='H').sort((a,b)=>DATA[a].dep-DATA[b].dep);
+  const right=[...selected].filter(i=>DATA[i].o==='T').sort((a,b)=>DATA[a].dep-DATA[b].dep);
+  const maxRows=Math.max(left.length,right.length,1);
+  const tableH=headH+maxRows*rowH;
+  const H=pad+titleH+subH+tableH+legendH+mapH+stampH+pad;
+  const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+  const x=cv.getContext('2d'); x.scale(S,S); x.textBaseline='middle';
+  x.fillStyle='#fff'; x.fillRect(0,0,W,H);
+  x.font='400 24px system-ui,Arial'; const a='Whoosh Departure ';
+  x.font='800 24px system-ui,Arial'; const bw=x.measureText('Schedule').width;
+  x.font='400 24px system-ui,Arial'; const aw=x.measureText(a).width;
+  const sx=W/2-(aw+bw)/2; x.textAlign='left'; x.fillStyle='#161616';
+  x.fillText(a,sx,pad+titleH/2); x.font='800 24px system-ui,Arial'; x.fillText('Schedule',sx+aw,pad+titleH/2);
+  const y0=pad+titleH;
+  drawTable(x,pad,y0,colW,subH,headH,rowH,left,'HT');
+  drawTable(x,pad+colW+gap,y0,colW,subH,headH,rowH,right,'TH');
+  const aft=y0+subH+tableH;
+  x.fillStyle='#F5821F'; x.beginPath(); x.arc(pad+6,aft+legendH/2,5,0,7); x.fill();
+  x.fillStyle='#161616'; x.textAlign='left'; x.font='700 13px system-ui,Arial';
+  x.fillText('Operates Monday–Saturday',pad+18,aft+legendH/2);
+  const mapY=aft+legendH;
+  x.fillStyle='#161616'; x.font='800 19px system-ui,Arial'; x.fillText('Whoosh Route Map',pad,mapY+16);
+  x.fillStyle='#8a8a8a'; x.font='400 12px system-ui,Arial'; x.fillText('Peta Whoosh',pad,mapY+34);
+  const stns=['Halim','Karawang','Padalarang','Tegalluar Summarecon'], mx0=pad+150, mx1=W-pad-10, lineY=mapY+40;
+  x.strokeStyle='#E30613'; x.lineWidth=3; x.beginPath(); x.moveTo(mx0,lineY); x.lineTo(mx1,lineY); x.stroke();
+  stns.forEach((s,si)=>{const px=mx0+(mx1-mx0)*si/(stns.length-1);
+    x.fillStyle='#E30613'; x.beginPath(); x.arc(px,lineY,6,0,7); x.fill();
+    x.fillStyle='#161616'; x.textAlign='center'; x.font='700 11px system-ui,Arial';
+    if(s==='Tegalluar Summarecon'){x.fillText('Tegalluar',px,lineY-20);x.fillText('Summarecon',px,lineY-6);}else x.fillText(s,px,lineY-12);});
+  x.fillStyle='#9a9a9a'; x.textAlign='right'; x.font='400 11px system-ui,Arial'; x.fillText('Update '+stampDisplay(),W-pad,H-pad+4);
+  return cv;
+}
+function savePNG(){ const cv=drawScheduleCanvas(); cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='jadwal-whoosh-'+stampStr()+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);}); }
+// ---------- aggregated CSV export ----------
+function csvCell(v){const s=String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;}
+function exportAggregatedCSV(){
+  const rows=[['train_no','origin','departure_time','arrival_time','stops_karawang','mode','value_pax','currently_selected']];
+  DATA.forEach((d,i)=>{
+    rows.push([d.train, d.o==='H'?'Halim':'Tegalluar', hhmm(d.dep), hhmm(arr(i)), d.kw?'Yes':'No', totalMode?'Total':'Average', DAV[i], selected.has(i)?'Yes':'No']);
+  });
+  const csv=rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='whoosh-aggregated-'+stampStr()+'.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+// ---------- CSV import (same property/columns as the base dataset) ----------
+function parseCSVLine(line){
+  const out=[]; let cur=''; let q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else{ if(c==='"')q=true; else if(c===','){out.push(cur);cur='';} else cur+=c; }
+  }
+  out.push(cur); return out;
+}
+function parseTimeToMinutes(s){
+  const m=String(s).trim().match(/(\d{1,2}):(\d{2}):(\d{2})\s*([AP]M)/i);
+  if(!m) return null;
+  let h=parseInt(m[1],10); const min=parseInt(m[2],10); const ap=m[4].toUpperCase();
+  if(ap==='AM'){ if(h===12)h=0; } else { if(h!==12)h+=12; }
+  return h*60+min;
+}
+function parseDateDMY(s){
+  const m=String(s).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return null;
+  return {day:+m[1], month:+m[2]-1, year:+m[3]};
+}
+function importCSVText(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
+  if(!lines.length){ alert('CSV kosong.'); return; }
+  const header=parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase());
+  const idxOf=name=>header.indexOf(name);
+  const cTrain=idxOf('train_no'), cOrigin=idxOf('origin'), cDest=idxOf('destination'), cDate=idxOf('departure_date'), cTime=idxOf('departure_time'), cCount=idxOf('count_of_nett_sales');
+  if([cTrain,cOrigin,cDest,cDate,cTime,cCount].some(v=>v<0)){
+    alert('CSV harus memiliki kolom: train_no, origin, destination, departure_date, departure_time, count_of_nett_sales'); return;
+  }
+  const trains={}; const monthYear={};
+  for(let li=1; li<lines.length; li++){
+    const row=parseCSVLine(lines[li]);
+    if(row.length<header.length) continue;
+    const tn=(row[cTrain]||'').trim(); if(!tn) continue;
+    const origin=(row[cOrigin]||'').trim(), dest=(row[cDest]||'').trim();
+    const d=parseDateDMY(row[cDate]); if(!d) continue;
+    const mo=d.month; if(mo<0||mo>11) continue;
+    if(!(mo in monthYear)) monthYear[mo]=d.year;
+    const cnt=parseInt(row[cCount],10)||0;
+    if(!trains[tn]) trains[tn]={home:null,dep:null,kw:false,p:new Array(12).fill(0),pr:new Array(12).fill(0)};
+    const t=trains[tn];
+    t.p[mo]+=cnt; t.pr[mo]=1;
+    if(origin==='Karawang'||dest==='Karawang') t.kw=true;
+    if(t.home===null && (origin==='Halim'||origin==='Tegalluar')){
+      const mins=parseTimeToMinutes(row[cTime]);
+      if(mins!==null){ t.home=origin; t.dep=mins; }
+    }
+  }
+  const newData=Object.keys(trains).filter(tn=>trains[tn].dep!==null).map(tn=>{
+    const t=trains[tn]; return {train:tn, dep:t.dep, o:(t.home==='Halim'?'H':'T'), kw:t.kw, p:t.p, pr:t.pr};
+  }).sort((a,b)=>a.dep-b.dep);
+  if(!newData.length){ alert('Tidak ada trainset valid ditemukan (perlu baris dengan origin Halim/Tegalluar untuk menentukan jadwal keberangkatan).'); return; }
+  const newDays=DAYS.slice();
+  for(let m=0;m<12;m++){ if(m in monthYear){ newDays[m]=new Date(monthYear[m], m+1, 0).getDate(); } }
+  DAYS=newDays; DATA=newData; N=DATA.length;
+  selected=new Set(DATA.map((_,i)=>i)); win=null; bMode='window'; dMode='loss';
+  monthSel=new Set([0,1,2,3,4,5,6,7,8,9,10,11]);
+  buildChart(); paintChips(); recompute(); render();
+  alert('CSV berhasil dimuat: '+DATA.length+' trainset.');
+}
+// ---------- interaction ----------
+const clampX=cx=>{const r=plot.getBoundingClientRect();return Math.max(0,Math.min(r.width,cx-r.left));};
+const idx=cx=>{const r=plot.getBoundingClientRect();return Math.min(N-1,Math.max(0,Math.floor((cx-r.left)/r.width*N)));};
+const barW=()=>plot.getBoundingClientRect().width/N;
+plot.addEventListener('pointerdown',e=>{
+  plot.setPointerCapture(e.pointerId);
+  const r=plot.getBoundingClientRect(), cx=e.clientX-r.left, width=r.width, bi=idx(e.clientX);
+  const mod=(e.ctrlKey||e.metaKey)?'add':e.shiftKey?'remove':null;
+  if(!mod && win && !wrapped()){
+    const lPx=win.start/N*width, rPx=(win.start+win.k)/N*width;
+    if(Math.abs(cx-lPx)<=EDGE){action='resizeL'; resizeFixed=win.start+win.k-1; return;}
+    if(Math.abs(cx-rPx)<=EDGE){action='resizeR'; resizeFixed=win.start; return;}
+    if(cx>lPx && cx<rPx){action='pan'; panBaseStart=win.start;panBaseK=win.k;panX0=e.clientX; plot.style.cursor='grabbing'; return;}
+  }
+  if(!mod && win && wrapped() && selected.has(bi)){action='pan'; panBaseStart=win.start;panBaseK=win.k;panX0=e.clientX; plot.style.cursor='grabbing'; return;}
+  action=mod||'select'; committed=new Set(selected); startX=cx;
+  selRect.style.display='block'; selRect.style.left=cx+'px'; selRect.style.width='0px'; applySelect(e);
+});
+plot.addEventListener('pointermove',e=>{
+  if(!action){
+    const r=plot.getBoundingClientRect(), cx=e.clientX-r.left, width=r.width; let c='crosshair';
+    if(win && !wrapped()){const lPx=win.start/N*width, rPx=(win.start+win.k)/N*width;
+      if(Math.abs(cx-lPx)<=EDGE||Math.abs(cx-rPx)<=EDGE)c='ew-resize'; else if(cx>lPx&&cx<rPx)c='grab';}
+    else if(win && selected.has(idx(e.clientX)))c='grab';
+    plot.style.cursor=c; return;
+  }
+  if(action==='pan'){const d=Math.round((e.clientX-panX0)/barW());const ns=(((panBaseStart+d)%N)+N)%N;win={start:ns,k:panBaseK};selected=runSet(ns,panBaseK);render();return;}
+  if(action==='resizeL'){const nl=Math.min(idx(e.clientX),resizeFixed);win={start:nl,k:resizeFixed-nl+1};selected=rangeSet(nl,resizeFixed);render();return;}
+  if(action==='resizeR'){const nr=Math.max(idx(e.clientX),resizeFixed);win={start:resizeFixed,k:nr-resizeFixed+1};selected=rangeSet(resizeFixed,nr);render();return;}
+  applySelect(e);
+});
+window.addEventListener('pointerup',()=>{action=null;selRect.style.display='none';plot.style.cursor='crosshair';});
+function applySelect(e){
+  const cx=clampX(e.clientX), l=Math.min(cx,startX), w=Math.abs(cx-startX);
+  selRect.style.left=l+'px'; selRect.style.width=w+'px';
+  const a=idx(e.clientX), b=Math.min(N-1,Math.max(0,Math.floor(startX/plot.getBoundingClientRect().width*N)));
+  const lo=Math.min(a,b), hi=Math.max(a,b);
+  if(action==='select'){selected=rangeSet(lo,hi); win={start:lo,k:hi-lo+1};}
+  else if(action==='add'){selected=new Set(committed);for(let i=lo;i<=hi;i++)selected.add(i); win=null;}
+  else {selected=new Set(committed);for(let i=lo;i<=hi;i++)selected.delete(i); win=null;}
+  render();
+}
+$('cardB').addEventListener('click',()=>{bMode=(bMode==='nonop'?'window':'nonop');render();});
+$('cardD').addEventListener('click',()=>{dMode=(dMode==='loss'?'pax':'loss');render();});
+$('resetBtn').addEventListener('click',()=>{selected=new Set(DATA.map((_,i)=>i));win=null;render();});
+$('noneBtn').addEventListener('click',()=>{selected=new Set();win=null;render();});
+function activateTab(name){
+  document.querySelectorAll('.tabBtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+  document.querySelectorAll('.tabPanel').forEach(p=>p.style.display = (p.id==='panel-'+name?'block':'none'));
+  if(name==='schedule' && schedWrap.style.display==='none') generateSchedule();
+}
+document.querySelectorAll('.tabBtn').forEach(b=>b.addEventListener('click',()=>activateTab(b.dataset.tab)));
+$('genSched').addEventListener('click',generateSchedule);
+$('printSched').addEventListener('click',()=>{ activateTab('schedule'); window.print(); });
+$('savePng').addEventListener('click',savePNG);
+$('exportCsv').addEventListener('click',exportAggregatedCSV);
+$('copyNarr').addEventListener('click',()=>{const t=$('narr');t.focus();t.select();try{document.execCommand('copy');}catch(e){}if(navigator.clipboard){navigator.clipboard.writeText(t.value).catch(()=>{});}const b=$('copyNarr');b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1200);});
+$('csvImportBtn').addEventListener('click',()=>$('csvFile').click());
+$('csvFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{ try{ importCSVText(ev.target.result); } catch(err){ alert('Gagal membaca CSV: '+err.message); } };
+  reader.readAsText(f);
+  e.target.value='';
+});
+$('totalToggle').addEventListener('change',e=>{ totalMode=e.target.checked; recompute(); render(); });
+const fareEl=$('fare'),preEl=$('pre'),postEl=$('post'),propEl=$('propWin');
+fareEl.addEventListener('input',()=>{let d=fareEl.value.replace(/\D/g,'');if(d==='')d='0';fare=parseInt(d,10);fareEl.value=fmtID(fare);render();});
+preEl.addEventListener('input',()=>{preMin=parseHM(preEl.value);render();});
+preEl.addEventListener('change',()=>{preEl.value=dur(preMin);});
+postEl.addEventListener('input',()=>{postMin=parseHM(postEl.value);render();});
+postEl.addEventListener('change',()=>{postEl.value=dur(postMin);});
+propEl.addEventListener('input',()=>{propMin=parseHM(propEl.value);render();});
+propEl.addEventListener('change',()=>{propEl.value=dur(propMin);});
+function paintChips(){document.querySelectorAll('.mchip').forEach(c=>c.classList.toggle('on',monthSel.has(+c.dataset.m)));}
+document.querySelectorAll('.mchip').forEach(c=>c.addEventListener('click',()=>{
+  const m=+c.dataset.m;
+  if(monthSel.has(m)) monthSel.delete(m); else monthSel.add(m);
+  paintChips(); recompute(); render();
+}));
+$('mAll').addEventListener('click',()=>{monthSel=new Set([0,1,2,3,4,5,6,7,8,9,10,11]);paintChips();recompute();render();});
+$('mNone').addEventListener('click',()=>{monthSel=new Set();paintChips();recompute();render();});
+buildChart(); paintChips(); recompute(); render(); activateTab('schedule');
+</script>
+</body>
+</html>
